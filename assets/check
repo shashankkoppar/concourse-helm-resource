@@ -17,7 +17,6 @@ namespace=$(jq -r '.source.namespace // "default"' < $payload)
 release=$(jq -r '.source.release // ""' < $payload)
 tiller_namespace=$(jq -r '.source.tiller_namespace // "kube-system"' < $payload)
 cluster_url=$(jq -r '.source.cluster_url // ""' < $payload)
-
 tillerless=$(jq -r '.source.tillerless // "false"' < $payload)
 if [ "$tillerless" = true ]; then
   helm_bin="helm tiller run ${tiller_namespace} -- helm"
@@ -26,7 +25,7 @@ else
 fi
 
 current_release=$(jq -r '.version.release' < $payload || true)
-if [ -z "cert-manager" ]; then
+if [ -z "$release" ]; then
   release="$current_release"
 fi
 
@@ -47,7 +46,7 @@ if [ -z "$cluster_url" ]; then
     echo '[]' >&3
   else
     # When the `version` was passed in, parrot it back
-    printf '[{"revision":"%s","release":"%s"}]\n' "$current_rev" "cert-manager" | jq -M . >&3
+    printf '[{"revision":"%s","release":"%s"}]\n' "$current_rev" "$release" | jq -M . >&3
   fi
 
   # Check has successfully finished so exit with success.
@@ -58,18 +57,24 @@ fi
 setup_resource $payload
 echo "Resource setup successful."
 
-if [ "$current_rev" -eq "0" ]; then
-  # Empty => return the current
-  $helm_bin history $tls_flag --tiller-namespace $tiller_namespace --max 20 cert-manager | tail -n 1 | while read -r line; do
-    revision=$(echo $line | awk '{ print $1 }')
-    echo "$revision"
-  done | jq -R '.' | jq -s "map({\"revision\": ., \"release\": \"cert-manager\"})" >&3
+if [ "$release" = "null" ]; then
+  echo "Release is not set in source config.";
+  echo "1" | jq -R '.' | jq -s "map({\"revision\": ., \"release\": \"null\"})" >&3
 else
-  # All versions equal and newer
-  $helm_bin history $tls_flag --tiller-namespace $tiller_namespace  --max 20 cert-manager | tail -n +2 | while read -r line; do
-    revision=$(echo $line | awk '{ print $1 }')
-    if [ -z "$current_rev" ] || [ "$revision" -ge "$current_rev" ]; then
+  echo "Release is set in source config.";
+  if [ "$current_rev" -eq "0" ]; then
+    # Empty => return the current
+    $helm_bin history $tls_flag --tiller-namespace $tiller_namespace --max 20 $release | tail -n 1 | while read -r line; do
+      revision=$(echo $line | awk '{ print $1 }')
       echo "$revision"
-    fi
-  done | jq -R '.' | jq -s "map({\"revision\": ., \"release\": \"cert-manager\"})" >&3
+    done | jq -R '.' | jq -s "map({\"revision\": ., \"release\": \"$release\"})" >&3
+  else
+    # All versions equal and newer
+    $helm_bin history $tls_flag --tiller-namespace $tiller_namespace  --max 20 $release | tail -n +2 | while read -r line; do
+      revision=$(echo $line | awk '{ print $1 }')
+      if [ -z "$current_rev" ] || [ "$revision" -ge "$current_rev" ]; then
+        echo "$revision"
+      fi
+    done | jq -R '.' | jq -s "map({\"revision\": ., \"release\": \"$release\"})" >&3
+  fi
 fi

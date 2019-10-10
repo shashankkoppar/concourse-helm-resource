@@ -176,7 +176,7 @@ setup_helm() {
     local release
     for release in $(helm ls -aq --tiller-namespace $tiller_namespace )
     do
-      helm delete $tls_enabled_arg --purge "cert-manager" --tiller-namespace $tiller_namespace
+      helm delete $tls_enabled_arg --purge "$release" --tiller-namespace $tiller_namespace
     done
   fi
 }
