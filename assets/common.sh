@@ -243,6 +243,8 @@ setup_resource() {
 
   echo "Initializing kubectl..."
   setup_kubernetes $1 $2
+  echo "Updating helm in server side..."
+  helm init --upgrade || true
   echo "Initializing helm..."
   setup_tls $1
   setup_helm $1 $2
