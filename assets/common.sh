@@ -245,7 +245,7 @@ setup_resource() {
   setup_kubernetes $1 $2
   echo "Updating helm in server side..."
   helm init --upgrade || true
-  kubectl rollout status deployment -n $tiller_namespace tiller-deploy
+  kubectl rollout status deployment tiller-deploy -n kube-system || true
   echo "Initializing helm..."
   setup_tls $1
   setup_helm $1 $2
