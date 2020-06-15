@@ -21,7 +21,7 @@ setup_gcp_kubernetes() {
   gcloud config set account ${gcloud_service_account_name}
   gcloud config set project ${gcloud_project_name}
   gcloud container clusters get-credentials ${gcloud_k8s_cluster_name} --zone ${gcloud_k8s_zone}
-  kubectl version 
+  kubectl version
 }
 
 setup_kubernetes() {
@@ -266,7 +266,6 @@ setup_resource() {
 
   gcloud_cluster_auth=$(jq -r '.source.gcloud_cluster_auth // "false"' < $1)
   if [ "$gcloud_cluster_auth" = "true" ]; then
-    set -x
     echo "Initializing kubectl access using gcloud service account file"
     setup_gcp_kubernetes $1 $2
   else
