@@ -1,6 +1,29 @@
 #!/bin/bash
 set -e
 
+setup_gcp_kubernetes() {
+  payload=$1
+  source=$2
+
+  gcloud_service_account_key_file=$(jq -r '.source.gcloud_service_account_key_file // ""' < $payload)
+  gcloud_project_name=$(jq -r '.source.gcloud_project_name // ""' < $payload)
+  gcloud_k8s_cluster_name=$(jq -r '.source.gcloud_k8s_cluster_name // ""' < $payload)
+  gcloud_k8s_zone=$(jq -r '.source.gcloud_k8s_zone // ""' < $payload)
+
+  if [ -z "$gcloud_service_account_key_file" ] || [ -z "$gcloud_project_name" ] || [ -z "$gcloud_k8s_cluster_name" ] || [ -z "$gcloud_k8s_zone" ]; then
+    echo "invalid payload for gcloud auth, please pass all required params"
+    exit 1
+  fi
+
+  echo "$gcloud_service_account_key_file" >> /gcloud.json
+  gcloud_service_account_name=($(cat /gcloud.json | jq -r ".client_email"))
+  gcloud auth activate-service-account ${gcloud_service_account_name} --key-file /gcloud.json"
+  gcloud config set account ${gcloud_service_account_name}"
+  gcloud config set project ${gcloud_project_name}"
+  gcloud container clusters get-credentials ${gcloud_k8s_cluster_name} --zone ${gcloud_k8s_zone}"
+
+}
+
 setup_kubernetes() {
   payload=$1
   source=$2
@@ -241,8 +264,16 @@ setup_resource() {
     set -x
   fi
 
-  echo "Initializing kubectl..."
-  setup_kubernetes $1 $2
+  gcloud_cluster_auth=$(jq -r '.source.gcloud_cluster_auth // "false"' < $1)
+  if [ "$gcloud_cluster_auth" = "true" ]; then
+    set -x
+    echo "Initializing kubectl access using gcloud service account file"
+    setup_gcp_kubernetes $1 $2
+  else
+    echo "Initializing kubectl using certificates"
+    setup_kubernetes $1 $2
+  fi
+
   echo "Updating helm in server side..."
   helm init --upgrade || true
   kubectl rollout status deployment tiller-deploy -n kube-system || true
