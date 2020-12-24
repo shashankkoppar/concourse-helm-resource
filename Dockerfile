@@ -21,7 +21,7 @@ WORKDIR /apps
 
 RUN apk add --update --upgrade --no-cache jq bash curl git ca-certificates
 
-ENV KUBERNETES_VERSION 1.16.9
+ENV KUBERNETES_VERSION 1.19.6
 RUN curl -L -o /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl; \
 chmod +x /usr/local/bin/kubectl
 
